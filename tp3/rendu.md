@@ -276,5 +276,5 @@ arp_poison(target_ip, target_mac, spoof_ip)
 arp_poison(target_ip2, target_mac2, spoof_ip2)
 
 En faisant : netsh interface ipv4 set interface "Wi-Fi" forwarding=enabled
-Je reçois bien ses requêtes TCP et il ne peut pas se connecter à des sites internet
+Je reçois bien ses requêtes TCP et il peut se connecter à des sites internet
 ```
