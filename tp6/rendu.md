@@ -258,3 +258,87 @@ dorian@client2:~$ curl http://web.tp6.b1
     <style type="text/css">
       /*<![CDATA[*/
 ```
+
+# BONUS
+Je fais tout sur le client1
+
+
+🌞 ping.py
+
+```
+
+dorian@client1:~$ cat ping.py
+from scapy.all import *
+
+
+ping = ICMP(type=8)
+
+
+packet = IP(src="10.6.1.137", dst="10.6.1.254")
+
+
+frame = Ether(src="08:00:27:c2:a9:42", dst="08:00:27:66:7b:b2")
+
+
+final_frame = frame/packet/ping
+
+
+answers, unanswered_packets = srp(final_frame, timeout=10)
+
+
+print(f"Pong reçu : {answers[0]}")
+dorian@client1:~$ sudo python3 ping.py
+Begin emission
+.*
+Finished sending 1 packets
+
+Received 2 packets, got 1 answers, remaining 0 packets
+Pong reçu : QueryAnswer(query=<Ether  dst=08:00:27:66:7b:b2 src=08:00:27:c2:a9:42 type=IPv4 |<IP  frag=0 proto=icmp src=10.6.1.137 dst=10.6.1.254 |<ICMP  type=echo-request |>>>, answer=<Ether  dst=08:00:27:c2:a9:42 src=08:00:27:66:7b:b2 type=IPv4 |<IP  version=4 ihl=5 tos=0x0 len=28 id=25524 flags= frag=0 ttl=64 proto=icmp chksum=0xff9a src=10.6.1.254 dst=10.6.1.137 |<ICMP  type=echo-reply code=0 chksum=0x0 id=0x0 seq=0x0 unused=b'' |<Padding  load=b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' |>>>>)
+```
+
+🌞 dns_request.py
+
+```
+dorian@client1:~$ sudo python3 dns_request.py
+Begin emission
+........
+Finished sending 1 packets
+.....*
+Received 14 packets, got 1 answers, remaining 0 packets
+188.114.96.6
+```
+
+🌞 dhcp request.py
+
+```
+en sniffant grâce à un autre fichier:
+from scapy.all import *
+def dhcp_sniff_callback(packet):
+    if packet.haslayer(DHCP):
+        dhcp_options = packet[DHCP].options
+        # Check for DHCP ACK (message type 5)
+        if dhcp_options[0][1] == 5:  
+            print("ACK reçu")
+sniff(filter="udp port 67", prn=dhcp_sniff_callback, store=0)
+
+On obtient:
+
+dorian@client1:~$ sudo python3 dhcp_request.py
+dorian@client1:~$ sudo python3 autrefichier.py 
+ACK reçu
+```
+
+🌞 dhcp_starvation.py
+
+```
+Petit extrait de quand ça tourne (dans le dhcp bail, on voit bien que toutes les ip sont prises):
+
+dorian@client1:~$ sudo python3 dhcp_starv.py 
+Trying to occupy 10.6.1.128
+NAK received
+.
+Sent 1 packets.
+Trying to occupy 10.6.1.129
+.NAK received
+```
+
